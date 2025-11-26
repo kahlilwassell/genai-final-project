@@ -1,0 +1,7 @@
+# Add project dependencies here
+streamlit
+langchain
+langgraph
+langchain-openai
+python-dotenv
+faiss-cpu
