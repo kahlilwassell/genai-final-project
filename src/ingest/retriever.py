@@ -8,7 +8,7 @@ from typing import List
 from dotenv import load_dotenv, find_dotenv
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 ROOT = Path(__file__).resolve().parents[2]
 INDEX_DIR = ROOT / "data" / "index" / "faiss_index"
