@@ -25,3 +25,10 @@ Currently just initialized. Code, data ingestion scripts, and Streamlit UI will 
 - **Day 12** — Documentation pass: expand README with architecture diagram/flow description, setup steps, env vars, eval results, safety rules, limitations, and future work. Add short demo script/gif if possible.
 - **Day 13** — Full end-to-end dry run on sample runner; fix any logic/UI bugs; verify safety checks trigger correctly.
 - **Day 14** — Final QA and submission packaging: clean logs, ensure instructions are clear, prepare submission summary (concepts covered: RAG, LangGraph agents/tools, guardrails, eval).
+
+## Current repo scaffold
+- `data/raw/` — place PDFs/MD/TXT training corpus and run-log CSVs.
+- `data/index/` — FAISS index output.
+- `data/eval/questions.jsonl` — seed eval questions for retrieval sanity checks.
+- `src/ingest/build_index.py` — script to build FAISS from `data/raw/`.
+- `src/ingest/retriever.py` — helper to load the index and run similarity search.

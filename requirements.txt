@@ -1,7 +1,9 @@
 # Add project dependencies here
 streamlit
 langchain
+langchain-community
 langgraph
 langchain-openai
 python-dotenv
 faiss-cpu
+pypdf
