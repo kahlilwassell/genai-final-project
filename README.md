@@ -32,3 +32,19 @@ Currently just initialized. Code, data ingestion scripts, and Streamlit UI will 
 - `data/eval/questions.jsonl` — seed eval questions for retrieval sanity checks.
 - `src/ingest/build_index.py` — script to build FAISS from `data/raw/`.
 - `src/ingest/retriever.py` — helper to load the index and run similarity search.
+- `src/graph/coach_graph.py` — LangGraph scaffold (agent + retriever tool).
+- `src/ui/app.py` — Streamlit MVP UI shell for the coach.
+
+## Running things
+- Build index (from repo root): `source .venv/bin/activate && python -m src.ingest.build_index`
+- Quick retrieval sanity check:
+  ```
+  source .venv/bin/activate
+  python - <<'PY'
+  from src.ingest.retriever import retrieve
+  docs = retrieve("Define a tempo run", k=2)
+  for d in docs:
+      print(d.metadata.get("source"), d.page_content[:200])
+  PY
+  ```
+- Streamlit UI: `source .venv/bin/activate && PYTHONPATH=. streamlit run src/ui/app.py`
