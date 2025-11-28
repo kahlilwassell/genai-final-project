@@ -1,10 +1,11 @@
 import datetime
 
+import pandas as pd
+from io import StringIO
 import streamlit as st
 from dotenv import load_dotenv, find_dotenv
-from langchain_core.messages import HumanMessage, SystemMessage
 
-from src.graph.coach_graph import build_graph
+from src.graph.coach_graph import run_plan, run_adjust
 
 
 load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
@@ -12,11 +13,6 @@ load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
 st.set_page_config(page_title="Agentic Run Coach", layout="wide")
 st.title("Agentic Run Coach (MVP)")
 st.caption("Grounded in your corpus via FAISS + LangGraph tools.")
-
-
-@st.cache_resource(show_spinner=False)
-def get_app(temperature: float):
-    return build_graph(temperature=temperature)
 
 
 with st.sidebar:
@@ -40,7 +36,7 @@ prompt = st.text_area(
 
 col1, col2 = st.columns([1, 1])
 with col1:
-    run_clicked = st.button("Generate", type="primary", use_container_width=True)
+    run_clicked = st.button("Generate plan", type="primary", use_container_width=True)
 with col2:
     st.write("")
 
@@ -56,18 +52,55 @@ def build_user_context() -> str:
     return " | ".join(parts)
 
 
+def maybe_table(plan_text: str):
+    """
+    Try to convert a Markdown-like table to DataFrame for nicer display.
+    If parsing fails, fallback to raw markdown.
+    """
+    lines = [ln.strip() for ln in plan_text.splitlines() if ln.strip()]
+    if not lines or "|" not in lines[0]:
+        st.markdown(plan_text)
+        return
+    try:
+        # Try pandas read_table from markdown-like
+        cleaned = "\n".join(lines)
+        df = pd.read_table(StringIO(cleaned), sep="|")
+        # Drop empty columns that can appear from markdown pipes
+        df = df.drop(columns=[c for c in df.columns if "Unnamed" in str(c)], errors="ignore")
+        st.dataframe(df, use_container_width=True)
+    except Exception:
+        st.markdown(plan_text)
+
+
 if run_clicked and prompt.strip():
-    app = get_app(temp)
-    context_str = build_user_context()
-    messages = [
-        SystemMessage(content="You are a running coach. Use the provided profile context and retrieval tool. Be safe and actionable."),
-        HumanMessage(content=f"Runner profile: {context_str}\n\nQuestion/Task: {prompt.strip()}"),
-    ]
-    with st.spinner("Generating..."):
-        result = app.invoke({"messages": messages})
-    msgs = result.get("messages", [])
-    answer = msgs[-1].content if msgs else "No response produced."
-    st.subheader("Answer")
-    st.markdown(answer)
+    profile = build_user_context()
+    with st.spinner("Generating plan..."):
+        plan_text, safety = run_plan(profile=profile, task=prompt.strip(), temperature=temp)
+    st.subheader("Plan")
+    maybe_table(plan_text)
+    st.subheader("Safety review")
+    st.markdown(safety)
 else:
-    st.info("Enter a prompt and click Generate.")
+    st.info("Enter a prompt and click Generate plan.")
+
+st.divider()
+st.header("Adjust today's session")
+
+today_plan = st.text_input("Today's planned session", value="6 miles easy + 4x20s strides")
+weather = st.text_input("Weather context", value="85F, humid, sunny")
+fatigue_adjust = st.slider("Fatigue for today (1=fresh, 5=exhausted)", 1, 5, 2, key="fatigue_adjust")
+
+if st.button("Adjust today", use_container_width=True):
+    profile = build_user_context()
+    with st.spinner("Adjusting..."):
+        adjusted, safety2 = run_adjust(
+            profile=profile,
+            today_plan=today_plan,
+            weather=weather,
+            fatigue=fatigue_adjust,
+            temperature=temp,
+        )
+    st.subheader("Adjusted session")
+    st.markdown(adjusted)
+    st.subheader("Safety review")
+    st.markdown(safety2)

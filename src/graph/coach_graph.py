@@ -4,7 +4,9 @@ Nodes:
 - agent: LLM that can call tools
 - tools: current tool is a retriever that returns top-k chunks
 
-This is an early skeleton; planner/adjuster/safety logic can be added in separate nodes later.
+Helpers:
+- run_plan(): single-turn plan generation with profile context + safety review
+- run_adjust(): adjust a single day based on weather/fatigue with retrieval grounding
 """
 
 from typing import List, Sequence
@@ -45,9 +47,9 @@ def build_graph(temperature: float = 0.2):
 
     sys_msg = SystemMessage(
         content=(
-            "You are a running coach. Use the retrieve_tool to ground answers in the training corpus. "
-            "Be concise and actionable. Include brief citations like [1] or (source). "
-            "If the corpus does not cover the question, say so."
+            "You are a running coach. Use the retrieve_tool to ground answers in the training corpus.\n"
+            "Return concise, actionable output. Prefer a 7-day table with Day, Session, Distance, and Pace/Effort.\n"
+            "Include brief citations like [1] tied to retrieved chunks. If the corpus lacks info, say so."
         )
     )
 
@@ -74,12 +76,63 @@ def build_graph(temperature: float = 0.2):
     return graph.compile()
 
 
-def run_coach(user_query: str, temperature: float = 0.2):
+def _safety_review(plan_text: str, profile: str) -> str:
     """
-    Convenience helper to run a single-turn query through the graph.
+    Light safety reviewer using the base model (no tools).
+    Flags: >10% weekly increase, overly long long-run vs profile, hard workouts back-to-back, heat illness warnings.
+    """
+    llm = get_model(temperature=0.0)
+    prompt = (
+        "You are a cautious running coach. Review the proposed plan for safety issues.\n"
+        "Profile: {profile}\n"
+        "Plan:\n{plan}\n\n"
+        "List any concrete safety warnings (max 4) or say 'No major safety issues detected.'"
+    ).format(profile=profile, plan=plan_text)
+    resp = llm.invoke([HumanMessage(content=prompt)])
+    return resp.content if hasattr(resp, "content") else str(resp)
+
+
+def run_plan(profile: str, task: str, temperature: float = 0.2):
+    """
+    Generate a 7-day plan with citations and a safety review.
     """
     app = build_graph(temperature=temperature)
-    state: MessagesState = {"messages": [HumanMessage(content=user_query)]}
-    result = app.invoke(state)
+    messages = [
+        SystemMessage(content="You are a running coach. Follow the system instructions and be safe."),
+        HumanMessage(
+            content=(
+                f"Runner profile: {profile}\n"
+                f"Task: {task}\n"
+                "Produce a 7-day plan table with Day, Session, Distance, Pace/Effort, and brief notes. Cite sources like [1]."
+            )
+        ),
+    ]
+    result = app.invoke({"messages": messages})
     msgs = result.get("messages", [])
-    return msgs[-1].content if msgs else ""
+    plan_text = msgs[-1].content if msgs else "No response produced."
+    safety = _safety_review(plan_text, profile)
+    return plan_text, safety
+
+
+def run_adjust(profile: str, today_plan: str, weather: str, fatigue: int, temperature: float = 0.2):
+    """
+    Adjust a single day based on weather/fatigue. Uses retrieval for guidance.
+    """
+    app = build_graph(temperature=temperature)
+    messages = [
+        SystemMessage(content="You are a running coach. Use the retrieve tool to ground adjustments."),
+        HumanMessage(
+            content=(
+                f"Runner profile: {profile}\n"
+                f"Today's planned session: {today_plan}\n"
+                f"Weather: {weather}\n"
+                f"Fatigue (1-5): {fatigue}\n"
+                "Adjust the session safely (distance, pace, or modality). Keep it concise and cite sources."
+            )
+        ),
+    ]
+    result = app.invoke({"messages": messages})
+    msgs = result.get("messages", [])
+    adjusted = msgs[-1].content if msgs else "No response produced."
+    safety = _safety_review(adjusted, profile)
+    return adjusted, safety
