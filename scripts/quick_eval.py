@@ -1,6 +1,6 @@
 """
 Quick retrieval sanity check against data/eval/questions.jsonl.
-Prints top sources per question.
+Prints top sources per question and shows domain metadata.
 """
 
 import json
@@ -23,12 +23,15 @@ def main():
     for rec in records:
         qid = rec.get("id")
         q = rec.get("question", "")
-        print(f"\n[{qid}] {q}")
+        domain = rec.get("domain")  # optional
+        print(f"\n[{qid}] {q} (domain={domain})")
         try:
-            docs = retrieve(q, k=2)
+            docs = retrieve(q, k=2, domain=domain)
             for i, d in enumerate(docs, 1):
                 snippet = d.page_content.replace("\n", " ")
-                print(f"  {i}. {snippet}\n     source: {d.metadata.get('source')}")
+                src = d.metadata.get("source")
+                dom = d.metadata.get("domain")
+                print(f"  {i}. {snippet}\n     source: {src}\n     domain: {dom}")
         except Exception as exc:
             print("  error:", exc)
 
