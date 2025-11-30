@@ -30,7 +30,7 @@ with st.sidebar:
 
 prompt = st.text_area(
     "Ask the coach",
-    value="Create a one-week plan with 1 tempo, 1 long run, and easy days around them.",
+    value="Create a plan to race day with weekly targets and a detailed next 7-day block (1 tempo, 1 long run, easy days around them).",
     height=120,
 )
 
@@ -74,8 +74,14 @@ def maybe_table(plan_text: str):
 
 if run_clicked and prompt.strip():
     profile = build_user_context()
+    weeks_to_race = max(4, int((race_date - datetime.date.today()).days // 7))
     with st.spinner("Generating plan..."):
-        plan_text, safety = run_plan(profile=profile, task=prompt.strip(), temperature=temp)
+        plan_text, safety = run_plan(
+            profile=profile,
+            task=prompt.strip(),
+            weeks_to_race=weeks_to_race,
+            temperature=temp,
+        )
     st.subheader("Plan")
     maybe_table(plan_text)
     st.subheader("Safety review")

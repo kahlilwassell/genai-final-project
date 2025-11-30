@@ -32,7 +32,7 @@ Currently just initialized. Code, data ingestion scripts, and Streamlit UI will 
 - `data/eval/questions.jsonl` — seed eval questions for retrieval sanity checks.
 - `src/ingest/build_index.py` — script to build FAISS from `data/raw/`.
 - `src/ingest/retriever.py` — helper to load the index and run similarity search.
-- `src/graph/coach_graph.py` — LangGraph scaffold (agent + retrieval tool + safety review helper).
+- `src/graph/coach_graph.py` — LangGraph scaffold (agent + retrieval tool + safety review helper + domain tagging).
 - `src/ui/app.py` — Streamlit UI shell for the coach.
 - `scripts/quick_eval.py` — CLI to sanity-check retrieval over eval questions.
 
