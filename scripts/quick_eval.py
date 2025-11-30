@@ -27,7 +27,7 @@ def main():
         try:
             docs = retrieve(q, k=2)
             for i, d in enumerate(docs, 1):
-                snippet = d.page_content[:200].replace("\n", " ")
+                snippet = d.page_content.replace("\n", " ")
                 print(f"  {i}. {snippet}\n     source: {d.metadata.get('source')}")
         except Exception as exc:
             print("  error:", exc)

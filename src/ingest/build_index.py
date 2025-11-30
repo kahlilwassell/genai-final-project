@@ -52,8 +52,8 @@ def load_documents():
 
 def chunk_documents(documents):
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100,
+        chunk_size=1200,
+        chunk_overlap=200,
         length_function=len,
     )
     return splitter.split_documents(documents)
@@ -71,6 +71,20 @@ def main():
     load_env()
     print(f"[info] Loading documents from {RAW_DIR}")
     documents = load_documents()
+    # Tag domains based on folder names so we can filter retrieval later
+    def tag_domain(doc):
+        src = doc.metadata.get("source", "")
+        if "/safety/" in src:
+            doc.metadata["domain"] = "safety"
+        elif "/fueling/" in src:
+            doc.metadata["domain"] = "fueling"
+        elif "/biomech/" in src or "shoe" in src.lower():
+            doc.metadata["domain"] = "biomech"
+        else:
+            doc.metadata["domain"] = "plans"
+        return doc
+
+    documents = [tag_domain(d) for d in documents]
     print(f"[info] Loaded {len(documents)} documents")
 
     print("[info] Chunking documents")

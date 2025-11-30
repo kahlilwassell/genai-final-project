@@ -3,7 +3,7 @@ Helpers to load the FAISS index and run similarity search.
 """
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from dotenv import load_dotenv, find_dotenv
 from langchain_community.vectorstores import FAISS
@@ -26,6 +26,10 @@ def load_vectorstore() -> FAISS:
     return FAISS.load_local(str(INDEX_DIR), embeddings, allow_dangerous_deserialization=True)
 
 
-def retrieve(query: str, k: int = 4) -> List[Document]:
+def retrieve(query: str, k: int = 4, domain: Optional[str] = None) -> List[Document]:
+    """
+    Retrieve top-k documents. If domain is provided, filter on doc.metadata["domain"].
+    """
     vs = load_vectorstore()
-    return vs.similarity_search(query, k=k)
+    filt = {"domain": domain} if domain else None
+    return vs.similarity_search(query, k=k, filter=filt)

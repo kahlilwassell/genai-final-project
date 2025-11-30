@@ -11,7 +11,7 @@ from src.graph.coach_graph import run_plan, run_adjust
 load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
 
 st.set_page_config(page_title="Agentic Run Coach", layout="wide")
-st.title("Agentic Run Coach (MVP)")
+st.title("Agentic Run Coach")
 st.caption("Grounded in your corpus via FAISS + LangGraph tools.")
 
 
