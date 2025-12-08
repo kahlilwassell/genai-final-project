@@ -2,7 +2,7 @@
 LangGraph scaffold for the Agentic Run Coach.
 Nodes:
 - agent: LLM that can call tools
-- tools: current tool is a retriever that returns top-k chunks
+- tools: retrieval tools (domain-aware) + safety checker
 
 Helpers:
 - run_plan(): multi-week plan generation with profile context + safety review
@@ -10,7 +10,6 @@ Helpers:
 """
 
 import re
-from datetime import date
 from typing import List, Sequence, Tuple
 
 from dotenv import load_dotenv, find_dotenv
@@ -26,18 +25,67 @@ from src.ingest.retriever import retrieve
 load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
 
 
-@tool
-def retrieve_tool(query: str, k: int = 3, domain: str = "") -> str:
-    """
-    Retrieve top-k relevant chunks from the training corpus.
-    Returns a text block you can cite directly.
-    """
-    dom = domain if domain else None
-    docs = retrieve(query, k=k, domain=dom)
-    out_lines: List[str] = []
+def _render_docs(docs: List) -> str:
+    lines: List[str] = []
     for i, d in enumerate(docs, 1):
-        out_lines.append(f"[{i}] {d.page_content.strip()}\n(source: {d.metadata.get('source')})")
-    return "\n\n".join(out_lines)
+        lines.append(f"[{i}] {d.page_content.strip()}\n(source: {d.metadata.get('source')}, domain={d.metadata.get('domain')})")
+    return "\n\n".join(lines)
+
+
+@tool
+def retrieve_plans(query: str, k: int = 3) -> str:
+    """Retrieve training plan / workout guidance (domain=plans)."""
+    return _render_docs(retrieve(query, k=k, domain="plans"))
+
+
+@tool
+def retrieve_safety(query: str, k: int = 3) -> str:
+    """Retrieve safety/injury/heat guidance (domain=safety)."""
+    return _render_docs(retrieve(query, k=k, domain="safety"))
+
+
+@tool
+def retrieve_fueling(query: str, k: int = 3) -> str:
+    """Retrieve fueling/hydration guidance (domain=fueling)."""
+    return _render_docs(retrieve(query, k=k, domain="fueling"))
+
+
+@tool
+def retrieve_biomech(query: str, k: int = 3) -> str:
+    """Retrieve biomechanics/shoe guidance (domain=biomech)."""
+    return _render_docs(retrieve(query, k=k, domain="biomech"))
+
+
+@tool
+def safety_limits(current_weekly: float, recent_long_run: float = 0.0, fatigue: int = 2) -> str:
+    """
+    Provide basic safety caps based on current mileage, recent long run, and fatigue.
+    """
+    cap_weekly = current_weekly * 1.1  # ~10% progression
+    lr_cap = max(recent_long_run + 2.0, recent_long_run * 1.2)
+    fatigue_note = "Reduce intensity/volume by 10–20%" if fatigue >= 4 else "Standard load is acceptable."
+    return (
+        f"Recommended weekly cap: {cap_weekly:.1f} mi; long run cap: {lr_cap:.1f} mi. "
+        f"Fatigue guidance: {fatigue_note}"
+    )
+
+
+@tool
+def heat_adjust(temp_f: float, humidity: int = 50) -> str:
+    """
+    Suggest heat adjustments as % slowdown based on temperature/humidity.
+    """
+    slow = 0
+    if temp_f >= 90:
+        slow = 8
+    elif temp_f >= 80:
+        slow = 5
+    elif temp_f >= 75:
+        slow = 3
+    if humidity >= 70 and slow > 0:
+        slow += 1
+    note = "Consider swapping to easy/shorter session" if temp_f >= 90 else "Hydrate and adjust pace."
+    return f"Suggested slowdown: ~{slow}% at {temp_f}F/{humidity}% humidity. {note}"
 
 
 def get_model(temperature: float = 0.2) -> ChatOpenAI:
@@ -47,27 +95,54 @@ def get_model(temperature: float = 0.2) -> ChatOpenAI:
 
 def build_graph(temperature: float = 0.2):
     model = get_model(temperature)
-    llm_with_tools = model.bind_tools([retrieve_tool])
+    llm_with_tools = model.bind_tools(
+        [
+            retrieve_plans,
+            retrieve_safety,
+            retrieve_fueling,
+            retrieve_biomech,
+            safety_limits,
+            heat_adjust,
+        ]
+    )
 
     sys_msg = SystemMessage(
         content=(
-            "You are a running coach. Use the retrieve_tool to ground answers in the training corpus.\n"
-            "When calling retrieve_tool, set domain to one of {plans, safety, fueling, biomech} based on the topic.\n"
-            "Return concise, actionable output. Prefer a 7-day table with Day, Session, Distance, and Pace/Effort.\n"
+            "You are a running coach. Use the retrieval tools to ground answers in the training corpus:\n"
+            "- retrieve_plans for training plans/structure\n"
+            "- retrieve_safety for heat/injury/load guidance\n"
+            "- retrieve_fueling for fueling/hydration\n"
+            "- retrieve_biomech for shoes/plates/biomechanics\n"
+            "Use safety_limits to check volume/long-run caps; use heat_adjust for temperature/humidity adjustments.\n"
+            "Return concise, actionable output. Prefer a table with Day, Session, Distance, and Pace/Effort.\n"
             "Include brief citations like [1] tied to retrieved chunks. If the corpus lacks info, say so."
         )
     )
 
     def agent_node(state: MessagesState):
         msgs: Sequence[BaseMessage] = state["messages"]
-        if not msgs:
-            return {"messages": []}
-        response = llm_with_tools.invoke(list(msgs))
+        # Ensure the system message is present
+        msg_list = list(msgs) if msgs else []
+        if not msg_list or not isinstance(msg_list[0], SystemMessage):
+            msg_list = [sys_msg] + msg_list
+        response = llm_with_tools.invoke(msg_list)
         return {"messages": [response]}
 
     graph = StateGraph(MessagesState)
     graph.add_node("agent", agent_node)
-    graph.add_node("tools", ToolNode([retrieve_tool]))
+    graph.add_node(
+        "tools",
+        ToolNode(
+            [
+                retrieve_plans,
+                retrieve_safety,
+                retrieve_fueling,
+                retrieve_biomech,
+                safety_limits,
+                heat_adjust,
+            ]
+        ),
+    )
     graph.set_entry_point("agent")
     graph.add_conditional_edges(
         "agent",
@@ -140,12 +215,12 @@ def run_plan(profile: str, task: str, weeks_to_race: int = 12, temperature: floa
     weeks = max(4, min(24, weeks_to_race or 12))
     app = build_graph(temperature=temperature)
     messages = [
-        SystemMessage(content="You are a running coach. Follow the system instructions and be safe."),
         HumanMessage(
             content=(
                 f"Runner profile: {profile}\n"
                 f"Task: {task}\n"
                 f"Plan horizon: {weeks} weeks until race.\n"
+                "Use retrieve_tool with domain=plans for training guidance; domain=safety for heat/injury/load caps; domain=fueling for fueling; domain=biomech for footwear/plates.\n"
                 "1) Give a week-by-week summary to race day (Base/Build/Taper) with target weekly mileage and key session focus.\n"
                 "2) Then give a detailed next-7-day table with Day, Session, Distance, Pace/Effort, and notes. Cite sources like [1].\n"
                 "Keep it grounded in the retrieved corpus. If corpus is weak, say so."
@@ -169,18 +244,13 @@ def run_adjust(profile: str, today_plan: str, weather: str, fatigue: int, temper
     """
     app = build_graph(temperature=temperature)
     messages = [
-        SystemMessage(
-            content=(
-                "You are a running coach. Use the retrieve tool to ground adjustments. "
-                "Respect safety: reduce intensity/volume for high fatigue or extreme heat. Cite sources."
-            )
-        ),
         HumanMessage(
             content=(
                 f"Runner profile: {profile}\n"
                 f"Today's planned session: {today_plan}\n"
                 f"Weather: {weather}\n"
                 f"Fatigue (1-5): {fatigue}\n"
+                "Use retrieve_tool with domain=safety for heat/fatigue/injury guidance; domain=plans for session structure.\n"
                 "Adjust the session safely (distance, pace, or modality). Keep it concise and cite sources."
             )
         ),
