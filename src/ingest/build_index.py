@@ -16,6 +16,7 @@ from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader, T
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
+from langchain_core.documents import Document
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW_DIR = ROOT / "data" / "raw"
@@ -50,6 +51,27 @@ def load_documents():
     return docs
 
 
+def consolidate_by_source(documents: list[Document]) -> list[Document]:
+    """
+    Combine pages from the same source into a single document to reduce doc count before chunking.
+    """
+    merged = {}
+    for d in documents:
+        src = d.metadata.get("source", "unknown")
+        if src not in merged:
+            merged[src] = {
+                "contents": [],
+                "meta": d.metadata.copy(),
+            }
+        merged[src]["contents"].append(d.page_content)
+
+    consolidated = []
+    for src, data in merged.items():
+        joined = "\n\n".join(data["contents"])
+        consolidated.append(Document(page_content=joined, metadata=data["meta"]))
+    return consolidated
+
+
 def chunk_documents(documents):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1200,
@@ -70,7 +92,10 @@ def build_and_save_index(chunks):
 def main():
     load_env()
     print(f"[info] Loading documents from {RAW_DIR}")
-    documents = load_documents()
+    raw_docs = load_documents()
+    documents = consolidate_by_source(raw_docs)
+    print(f"[info] Loaded {len(raw_docs)} raw docs, consolidated to {len(documents)} by source")
+
     # Tag domains based on folder names so we can filter retrieval later
     def tag_domain(doc):
         src = doc.metadata.get("source", "")
@@ -80,6 +105,8 @@ def main():
             doc.metadata["domain"] = "fueling"
         elif "/biomech/" in src or "shoe" in src.lower():
             doc.metadata["domain"] = "biomech"
+        elif "/personal/" in src:
+            doc.metadata["domain"] = "personal"
         else:
             doc.metadata["domain"] = "plans"
         return doc
