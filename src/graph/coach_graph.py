@@ -10,7 +10,7 @@ Helpers:
 """
 
 import re
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, Union
 
 from dotenv import load_dotenv, find_dotenv
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
@@ -114,7 +114,7 @@ def build_graph(temperature: float = 0.2):
             "- retrieve_fueling for fueling/hydration\n"
             "- retrieve_biomech for shoes/plates/biomechanics\n"
             "Use safety_limits to check volume/long-run caps; use heat_adjust for temperature/humidity adjustments.\n"
-            "Return concise, actionable output. Prefer a table with Day, Session, Distance, and Pace/Effort.\n"
+            "Return concise, actionable output. Prefer a table with Date, Session, Distance, and Pace/Effort.\n"
             "Include brief citations like [1] tied to retrieved chunks. If the corpus lacks info, say so."
         )
     )
@@ -154,6 +154,23 @@ def build_graph(temperature: float = 0.2):
     )
     graph.add_edge("tools", "agent")
     return graph.compile()
+
+
+def _profile_to_str(profile: Union[str, dict]) -> str:
+    if isinstance(profile, str):
+        return profile
+    if isinstance(profile, dict):
+        parts = []
+        for key in ["race_name", "race_date", "days_per_week", "weekly_mileage", "long_run", "long_run_day", "workout_days", "injury"]:
+            val = profile.get(key)
+            if val is None:
+                continue
+            if key == "workout_days" and isinstance(val, list):
+                parts.append(f"{key}: {', '.join(val)}")
+            else:
+                parts.append(f"{key}: {val}")
+        return " | ".join(parts) or "No profile provided"
+    return str(profile)
 
 
 def _safety_review(plan_text: str, profile: str) -> str:
@@ -209,29 +226,27 @@ def _rule_based_safety(plan_text: str, profile: str) -> List[str]:
 
 
 def run_plan(
-    profile: str,
-    task: str,
+    profile: dict,
     weeks_to_race: int = 12,
     temperature: float = 0.2,
-    long_run_day: str = "Sunday",
-    days_per_week: int = 6,
 ) -> Tuple[str, str]:
     """
-    Generate a phased plan to race day (weekly summary) plus the next 7-day detailed plan.
-    Enforces one long run on the chosen day, one tempo, one interval, and easy runs separating them.
+    Generate a phased plan to race day. If full_plan=True, include a daily schedule through race day (week-by-week, all days).
+    Enforces one long run on the chosen day, one tempo, one interval, and easy runs separating them each week.
     """
     weeks = max(4, min(24, weeks_to_race or 12))
     app = build_graph(temperature=temperature)
+    profile_str = _profile_to_str(profile)
     messages = [
         HumanMessage(
             content=(
-                f"Runner profile: {profile}\n"
-                f"Task: {task}\n"
+                f"Runner profile: {profile_str}\n"
                 f"Plan horizon: {weeks} weeks until race.\n"
                 "Use retrieve_plans for training guidance; retrieve_safety for heat/injury/load caps; retrieve_fueling for fueling; retrieve_biomech for footwear/plates.\n"
-                f"Constraints: schedule the long run on {long_run_day}; include exactly one long run, one tempo, and one interval session per week; total training days per week = {days_per_week}; place easy days between any hard days.\n"
+                f"Constraints: schedule the long run on {profile["long_run_day"]}; include exactly one long run, one tempo, and one interval session per week; total training days per week = {profile["days_per_week"]}; place easy days between any hard days.\n"
                 "1) Give a week-by-week summary to race day (Base/Build/Taper) with target weekly mileage and key session focus.\n"
-                "2) Then give a detailed next-7-day table with Day, Session, Distance, Pace/Effort, and notes that satisfies the constraints above. Cite sources like [1].\n"
+                "2) Then give a detailed schedule listing every day from now to race day with Date, Session, Distance, Pace/Effort, and notes that satisfies the constraints above. Cite sources like [1].\n"
+                "If full_plan is requested, ensure every week is covered with all training days shown.\n"
                 "Keep it grounded in the retrieved corpus. If corpus is weak, say so."
             )
         ),
@@ -239,12 +254,32 @@ def run_plan(
     result = app.invoke({"messages": messages})
     msgs = result.get("messages", [])
     plan_text = msgs[-1].content if msgs else "No response produced."
-    safety_llm = _safety_review(plan_text, profile)
-    safety_rules = _rule_based_safety(plan_text, profile)
+    safety_llm = _safety_review(plan_text, profile_str)
+    safety_rules = _rule_based_safety(plan_text, profile_str)
     combined = safety_llm
     if safety_rules:
         combined = "Heuristic checks:\n- " + "\n- ".join(safety_rules) + "\n\nLLM review:\n" + safety_llm
     return plan_text, combined
+
+
+def run_qa(question: str, profile: Union[str, dict, None] = None, temperature: float = 0.2) -> str:
+    """
+    General Q&A over the corpus. Profile is optional; no plan generation implied.
+    """
+    app = build_graph(temperature=temperature)
+    profile_str = _profile_to_str(profile) if profile else "No profile provided"
+    messages = [
+        HumanMessage(
+            content=(
+                f"Runner profile (optional): {profile_str}\n"
+                f"Question: {question}\n"
+                "Answer concisely using the corpus with citations. Do not generate a plan unless explicitly asked."
+            )
+        )
+    ]
+    result = app.invoke({"messages": messages})
+    msgs = result.get("messages", [])
+    return msgs[-1].content if msgs else "No response produced."
 
 
 def run_adjust(profile: str, today_plan: str, weather: str, fatigue: int, temperature: float = 0.2) -> Tuple[str, str]:
@@ -252,10 +287,11 @@ def run_adjust(profile: str, today_plan: str, weather: str, fatigue: int, temper
     Adjust a single day based on weather/fatigue. Uses retrieval for guidance.
     """
     app = build_graph(temperature=temperature)
+    profile_str = _profile_to_str(profile)
     messages = [
         HumanMessage(
             content=(
-                f"Runner profile: {profile}\n"
+                f"Runner profile: {profile_str}\n"
                 f"Today's planned session: {today_plan}\n"
                 f"Weather: {weather}\n"
                 f"Fatigue (1-5): {fatigue}\n"
@@ -267,5 +303,5 @@ def run_adjust(profile: str, today_plan: str, weather: str, fatigue: int, temper
     result = app.invoke({"messages": messages})
     msgs = result.get("messages", [])
     adjusted = msgs[-1].content if msgs else "No response produced."
-    safety = _safety_review(adjusted, profile)
+    safety = _safety_review(adjusted, profile_str)
     return adjusted, safety

@@ -102,7 +102,7 @@ def main():
             doc.metadata["domain"] = "safety"
         elif "/fueling/" in src:
             doc.metadata["domain"] = "fueling"
-        elif "/biomech/" in src or "shoe" in src.lower():
+        elif "/biomech/" in src:
             doc.metadata["domain"] = "biomech"
         elif "/personal/" in src:
             doc.metadata["domain"] = "personal"
