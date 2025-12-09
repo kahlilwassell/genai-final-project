@@ -114,7 +114,7 @@ def build_graph(temperature: float = 0.2):
             "- retrieve_fueling for fueling/hydration\n"
             "- retrieve_biomech for shoes/plates/biomechanics\n"
             "Use safety_limits to check volume/long-run caps; use heat_adjust for temperature/humidity adjustments.\n"
-            "Return concise, actionable output. Prefer a table with Date, Session, Distance, and Pace/Effort.\n"
+            "Return actionable output. Prefer a table with Date, Session, Distance, and Pace/Effort.\n"
             "Include brief citations like [1] tied to retrieved chunks. If the corpus lacks info, say so."
         )
     )
@@ -161,7 +161,17 @@ def _profile_to_str(profile: Union[str, dict]) -> str:
         return profile
     if isinstance(profile, dict):
         parts = []
-        for key in ["race_name", "race_date", "days_per_week", "weekly_mileage", "long_run", "long_run_day", "workout_days"]:
+        for key in [
+            "race_name",
+            "race_date",
+            "goal_time",
+            "days_per_week",
+            "weekly_mileage",
+            "long_run",
+            "long_run_day",
+            "workout_days",
+            "injury",
+        ]:
             val = profile.get(key)
             if val is None:
                 continue
@@ -226,9 +236,11 @@ def _rule_based_safety(plan_text: str, profile: str) -> List[str]:
 
 
 def run_plan(
-    profile: dict,
+    profile: Union[str, dict],
     weeks_to_race: int = 12,
     temperature: float = 0.2,
+    long_run_day: str = "Sunday",
+    days_per_week: int = 6,
 ) -> Tuple[str, str]:
     """
     Generate a phased plan to race day. If full_plan=True, include a daily schedule through race day (week-by-week, all days).
@@ -237,15 +249,23 @@ def run_plan(
     weeks = max(4, min(24, weeks_to_race or 12))
     app = build_graph(temperature=temperature)
     profile_str = _profile_to_str(profile)
+    lr_day_val = long_run_day
+    dpw_val = days_per_week
+    goal_time = ""
+    if isinstance(profile, dict):
+        lr_day_val = profile.get("long_run_day", lr_day_val)
+        dpw_val = profile.get("days_per_week", dpw_val)
+        goal_time = profile.get("goal_time", "")
     messages = [
         HumanMessage(
             content=(
                 f"Runner profile: {profile_str}\n"
                 f"Plan horizon: {weeks} weeks until race.\n"
-                f"Constraints: schedule the long run on {profile["long_run_day"]}; include exactly one long run, one tempo, and one interval session per week; total training days per week = {profile["days_per_week"]}; place easy days between any hard days.\n"
+                f"Use race goal time {goal_time} to derive target race pace and set paces for long/tempo/interval/easy days.\n"
+                f"Constraints: schedule the long run on {lr_day_val}; include exactly one long run, one tempo, and one interval session per week; total training days per week = {dpw_val}; place easy days between any hard days.\n"
                 "1) Give a week-by-week summary to race day (Base/Build/Taper) with target weekly mileage and key session focus.\n"
                 "2) Then give a detailed schedule listing every day from now to race day with Date, Session, Distance, Pace/Effort, and notes that satisfies the constraints above. Cite sources like [1].\n"
-                "Ensure every day until race day is shown\n"
+                "Ensure every day until race day is shown.\n"
                 "Keep it grounded in the retrieved corpus. If corpus is weak, say so."
             )
         ),
@@ -272,7 +292,7 @@ def run_qa(question: str, profile: Union[str, dict, None] = None, temperature: f
             content=(
                 f"Runner profile (optional): {profile_str}\n"
                 f"Question: {question}\n"
-                "Answer concisely using the corpus with citations. Do not generate a plan unless explicitly asked."
+                "Answer concisely using the corpus with citations like [1]. If corpus lacks info, say so."
             )
         )
     ]

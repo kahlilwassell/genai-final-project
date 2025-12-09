@@ -13,7 +13,7 @@ load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
 
 st.set_page_config(page_title="Agentic Run Coach", layout="wide")
 st.title("Agentic Run Coach")
-st.caption("Grounded in your a running oriented corpus via FAISS + LangGraph tools.")
+st.caption("Grounded in your running corpus via FAISS + LangGraph tools.")
 
 
 def maybe_table(text: str):
@@ -47,13 +47,14 @@ with tabs[0]:
     st.subheader("Setup My Profile")
     race_name = st.selectbox("Goal race", ["5K", "10K", "Half Marathon", "Marathon"], index=2)
     race_date = st.date_input("Race date", value=datetime.date.today() + datetime.timedelta(days=90))
+    goal_time = st.text_input("Goal race time (hh:mm:ss)", value="01:35:00")
     days_per_week = st.slider("Training days per week", 3, 7, 6)
     weekly_mileage = st.number_input("Current weekly mileage (mi)", min_value=0.0, max_value=200.0, value=30.0, step=1.0)
     long_run = st.number_input("Recent long run (mi)", min_value=0.0, max_value=35.0, value=10.0, step=1.0)
     long_run_day = st.selectbox("Preferred long run day", ["Saturday", "Sunday"], index=1)
     workout_days = st.multiselect(
         "Preferred hard days (tempo/interval)",
-        ["Tuesday", "Wednesday", "Thursday", "Saturday"],
+        ["Monday","Tuesday", "Wednesday", "Thursday", "Saturday"],
         default=["Tuesday", "Thursday"],
         help="We will spread hard days with easy days between. Long run fixed separately.",
     )
@@ -64,6 +65,7 @@ with tabs[0]:
         profile_data = {
             "race_name": race_name,
             "race_date": race_date,
+            "goal_time": goal_time,
             "days_per_week": days_per_week,
             "weekly_mileage": weekly_mileage,
             "long_run": long_run,
@@ -74,6 +76,9 @@ with tabs[0]:
             plan_text, safety = run_plan(
                 profile=profile_data,
                 weeks_to_race=weeks_to_race,
+                temperature=0.2,
+                long_run_day=long_run_day,
+                days_per_week=days_per_week,
             )
         st.subheader("Plan")
         maybe_table(plan_text)
