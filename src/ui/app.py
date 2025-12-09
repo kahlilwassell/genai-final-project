@@ -1,5 +1,6 @@
 import datetime
 from io import StringIO
+import json
 
 import pandas as pd
 import streamlit as st
@@ -29,10 +30,14 @@ def maybe_table(text: str):
         st.markdown(text)
 
 
-def build_profile_context(data: dict | None) -> dict | str:
+def build_profile_context(data: dict | None) -> str:
     if not data:
         return "No profile provided"
-    return data
+    try:
+        # Convert profile dict to a stable JSON string for downstream functions expecting str
+        return json.dumps(data, indent=2, default=str)
+    except Exception:
+        return str(data)
 
 
 tabs = st.tabs(["Setup Profile & Plan", "Ask the Coach", "Adjust a Session"])

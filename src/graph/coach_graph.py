@@ -161,7 +161,7 @@ def _profile_to_str(profile: Union[str, dict]) -> str:
         return profile
     if isinstance(profile, dict):
         parts = []
-        for key in ["race_name", "race_date", "days_per_week", "weekly_mileage", "long_run", "long_run_day", "workout_days", "injury"]:
+        for key in ["race_name", "race_date", "days_per_week", "weekly_mileage", "long_run", "long_run_day", "workout_days"]:
             val = profile.get(key)
             if val is None:
                 continue
@@ -242,11 +242,10 @@ def run_plan(
             content=(
                 f"Runner profile: {profile_str}\n"
                 f"Plan horizon: {weeks} weeks until race.\n"
-                "Use retrieve_plans for training guidance; retrieve_safety for heat/injury/load caps; retrieve_fueling for fueling; retrieve_biomech for footwear/plates.\n"
                 f"Constraints: schedule the long run on {profile["long_run_day"]}; include exactly one long run, one tempo, and one interval session per week; total training days per week = {profile["days_per_week"]}; place easy days between any hard days.\n"
                 "1) Give a week-by-week summary to race day (Base/Build/Taper) with target weekly mileage and key session focus.\n"
                 "2) Then give a detailed schedule listing every day from now to race day with Date, Session, Distance, Pace/Effort, and notes that satisfies the constraints above. Cite sources like [1].\n"
-                "If full_plan is requested, ensure every week is covered with all training days shown.\n"
+                "Ensure every day until race day is shown\n"
                 "Keep it grounded in the retrieved corpus. If corpus is weak, say so."
             )
         ),
