@@ -32,7 +32,9 @@ def _render_docs(docs: List) -> str:
     for i, d in enumerate(docs, 1):
         src = d.metadata.get("source") or ""
         friendly = Path(src).name if src else "unknown"
-        lines.append(f"[{i}] {d.page_content.strip()}\n(source: {friendly}, domain={d.metadata.get('domain')})")
+        lines.append(
+            f"[{i} | {friendly}] {d.page_content.strip()}\n(source: {friendly}, domain={d.metadata.get('domain')})"
+        )
     return "\n\n".join(lines)
 
 
@@ -119,7 +121,7 @@ def build_graph(temperature: float = 0.2):
             "- retrieve_biomech for shoes/plates/biomechanics\n"
             "Use safety_limits to check volume/long-run caps; use heat_adjust for temperature/humidity adjustments.\n"
             "Return actionable output. Prefer a table with Date, Session, Distance, and Pace/Effort.\n"
-            "Include brief citations like [1] tied to retrieved chunks. If the corpus lacks info, say so."
+            "Include brief citations like [1 | filename] tied to retrieved chunks. If the corpus lacks info, say so."
         )
     )
 
