@@ -82,6 +82,25 @@ def pace_overview(race: str, goal_time_str: str):
     return summary, paces
 
 
+def validate_goal_time(race: str, goal_time_str: str) -> str | None:
+    total_sec = parse_goal_time(goal_time_str)
+    dist_miles = {
+        "5K": 3.107,
+        "10K": 6.214,
+        "Half Marathon": 13.109,
+        "Marathon": 26.218,
+    }.get(race)
+    if total_sec is None or total_sec <= 0 or dist_miles is None:
+        return "Please enter a valid goal time (hh:mm:ss)."
+    pace = total_sec / dist_miles  # seconds per mile
+    # Guard against world-record-level or unrealistic inputs
+    if pace < 240:  # faster than 4:00/mi
+        return "Goal time implies faster than world-class pace. Please enter a realistic goal."
+    if race == "Marathon" and total_sec < 7200:  # sub-2:00 marathon
+        return "Marathon goal under 2:00 is unrealistic. Please adjust the goal time."
+    return None
+
+
 tabs = st.tabs(["Setup Profile & Plan", "Ask the Coach", "Adjust a Session"])
 
 # --- Setup Profile & Plan tab ---
@@ -106,6 +125,10 @@ with tabs[0]:
     st.info(f"Pace overview: {pace_summary}")
 
     if st.button("Generate full plan", type="primary"):
+        err = validate_goal_time(race_name, goal_time)
+        if err:
+            st.error(err)
+            st.stop()
         profile_data = {
             "race_name": race_name,
             "race_date": race_date,

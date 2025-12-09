@@ -267,8 +267,8 @@ def run_plan(
                 f"Use race goal time {goal_time} to derive target race pace and set paces for long/tempo/interval/easy days.\n"
                 f"Constraints: schedule the long run on {lr_day_val}; include exactly one long run, one tempo, and one interval session per week; total training days per week = {dpw_val}; place easy days between any hard days.\n"
                 "1) Give a week-by-week summary to race day (Base/Build/Taper) with target weekly mileage and key session focus.\n"
-                "2) Then give a detailed schedule listing every day from now to race day with Date, Session, Distance, Pace/Effort, and notes that satisfies the constraints above. Cite sources like [1].\n"
-                "Ensure every day until race day is shown.\n"
+                "2) Then give a detailed schedule listing EVERY day from now to race day (Mon–Sun each week) with Date, Session, Distance, Pace/Effort, and notes that satisfies the constraints above. Cite sources like [1].\n"
+                "If you cannot list every day explicitly, state that the plan is incomplete.\n"
                 "Keep it grounded in the retrieved corpus. If corpus is weak, say so."
             )
         ),
