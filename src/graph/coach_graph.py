@@ -299,7 +299,7 @@ def run_qa(question: str, profile: Union[str, dict, None] = None, temperature: f
             content=(
                 f"Runner profile (optional): {profile_str}\n"
                 f"Question: {question}\n"
-                "Answer concisely using the corpus with citations like [1]. If corpus lacks info, say so."
+                "Answer concisely using the corpus with citations. If corpus lacks info, say so."
             )
         )
     ]
