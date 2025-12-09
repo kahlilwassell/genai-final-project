@@ -23,11 +23,12 @@ INDEX_DIR = ROOT / "data" / "index" / "faiss_index"
 
 
 def load_env() -> None:
-    # Prefer a local .env; if not present, try walking up.
+    """Load environment variables (e.g., OPENAI_API_KEY)."""
     load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
 
 
 def load_documents():
+    """Load PDF/MD/TXT files from RAW_DIR (skipping index/eval)."""
     if not RAW_DIR.exists():
         raise FileNotFoundError(f"Raw data folder not found: {RAW_DIR}")
 
@@ -72,6 +73,7 @@ def consolidate_by_source(documents: list[Document]) -> list[Document]:
 
 
 def chunk_documents(documents):
+    """Split documents into overlapping chunks for embedding."""
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1200,
         chunk_overlap=200,
@@ -81,6 +83,7 @@ def chunk_documents(documents):
 
 
 def build_and_save_index(chunks):
+    """Embed chunks, build FAISS index, and persist it locally."""
     embeddings = OpenAIEmbeddings()
     vectorstore = FAISS.from_documents(chunks, embeddings)
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
@@ -89,6 +92,7 @@ def build_and_save_index(chunks):
 
 
 def main():
+    """Entry point to build the index from data/."""
     load_env()
     print(f"[info] Loading documents from {RAW_DIR}")
     raw_docs = load_documents()

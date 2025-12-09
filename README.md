@@ -53,3 +53,17 @@ Agentic running coach that combines RAG, LangGraph, safety guardrails, and goal-
   ```
 - Eval retrieval set: `source .venv/bin/activate && python scripts/quick_eval.py`
 - Streamlit UI: `source .venv/bin/activate && PYTHONPATH=. streamlit run src/ui/app.py`
+
+## Limitations / Future work
+- Retrieval scope limited to current corpus; add more biomechanics/fueling/safety docs and fine-tune chunking/filters.
+- Paces and safety heuristics are coarse; replace with richer tables or model-based calculators.
+- Plans are single-runner and rule-based; multi-runner storage, history, and feedback loops are out of scope.
+- Safety still relies on LLM judgment; a deterministic checker could enforce more constraints (e.g., weekly caps, heat/WBGT).
+- UI lacks persistence/logs; adding saved plans, run logs, and trace views would improve auditability.
+
+## Demo video outline (suggested)
+1) 5–10s: Project goal and tech stack (RAG + LangGraph + safety).
+2) 20–30s: Walk through Setup tab, show pace overview and generate full plan (highlight daily schedule and citations).
+3) 15–20s: Ask the Coach example (e.g., heat adjustment or biomechanics) showing cited answer.
+4) 15–20s: Adjust Session demo with fatigue/heat/injury flag and safety note.
+5) 5–10s: Call out safety guardrails and limitations/future work.

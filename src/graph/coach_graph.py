@@ -27,6 +27,7 @@ load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
 
 
 def _render_docs(docs: List) -> str:
+    """Render retrieved docs with friendly source names for prompting/citations."""
     lines: List[str] = []
     for i, d in enumerate(docs, 1):
         src = d.metadata.get("source") or ""
@@ -160,6 +161,7 @@ def build_graph(temperature: float = 0.2):
 
 
 def _profile_to_str(profile: Union[str, dict]) -> str:
+    """Convert a profile dict (or string) into a compact string for prompts."""
     if isinstance(profile, str):
         return profile
     if isinstance(profile, dict):

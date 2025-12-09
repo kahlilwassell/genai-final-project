@@ -1,7 +1,5 @@
 import datetime
 from io import StringIO
-import json
-
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv, find_dotenv
@@ -17,6 +15,7 @@ st.caption("Grounded in your running corpus via FAISS + LangGraph tools.")
 
 
 def maybe_table(text: str):
+    """Render markdown table as DataFrame when possible; fallback to markdown."""
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     if not lines or "|" not in lines[0]:
         st.markdown(text)
@@ -31,10 +30,12 @@ def maybe_table(text: str):
 
 
 def build_profile_context(data: dict | None) -> dict | str:
+    """Return profile dict if present, else a placeholder string."""
     return data or "No profile provided"
 
 
 def parse_goal_time(time_str: str) -> float | None:
+    """Parse hh:mm:ss goal time into total seconds."""
     try:
         parts = time_str.strip().split(":")
         parts = [float(p) for p in parts]
@@ -55,12 +56,14 @@ def parse_goal_time(time_str: str) -> float | None:
 
 
 def format_pace(sec_per_unit: float) -> str:
+    """Format seconds per mile/km into mm:ss string."""
     mins = int(sec_per_unit // 60)
     secs = int(round(sec_per_unit % 60))
     return f"{mins}:{secs:02d}"
 
 
 def pace_overview(race: str, goal_time_str: str):
+    """Compute simple pace bands from goal time for common race distances."""
     dist_miles = {
         "5K": 3.107,
         "10K": 6.214,
@@ -83,6 +86,7 @@ def pace_overview(race: str, goal_time_str: str):
 
 
 def validate_goal_time(race: str, goal_time_str: str) -> str | None:
+    """Basic validation to prevent unrealistic goal times (e.g., sub-2:00 marathon)."""
     total_sec = parse_goal_time(goal_time_str)
     dist_miles = {
         "5K": 3.107,

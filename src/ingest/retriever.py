@@ -15,10 +15,12 @@ INDEX_DIR = ROOT / "data" / "index" / "faiss_index"
 
 
 def load_env() -> None:
+    """Load environment variables for embeddings."""
     load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
 
 
 def load_vectorstore() -> FAISS:
+    """Load the persisted FAISS index with the same embedding model."""
     load_env()
     if not INDEX_DIR.exists():
         raise FileNotFoundError(f"FAISS index not found at {INDEX_DIR}. Run build_index.py first.")

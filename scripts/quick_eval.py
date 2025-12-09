@@ -12,6 +12,7 @@ from src.ingest.retriever import retrieve
 
 
 def main():
+    """Loop through eval questions and print retrieved snippets/domains for sanity checking."""
     load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
     questions_path = Path(__file__).resolve().parents[1] / "data" / "eval" / "questions.jsonl"
     if not questions_path.exists():
