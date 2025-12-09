@@ -10,6 +10,7 @@ Helpers:
 """
 
 import re
+from pathlib import Path
 from typing import List, Sequence, Tuple, Union
 
 from dotenv import load_dotenv, find_dotenv
@@ -28,7 +29,9 @@ load_dotenv(find_dotenv(usecwd=True, raise_error_if_not_found=False))
 def _render_docs(docs: List) -> str:
     lines: List[str] = []
     for i, d in enumerate(docs, 1):
-        lines.append(f"[{i}] {d.page_content.strip()}\n(source: {d.metadata.get('source')}, domain={d.metadata.get('domain')})")
+        src = d.metadata.get("source") or ""
+        friendly = Path(src).name if src else "unknown"
+        lines.append(f"[{i}] {d.page_content.strip()}\n(source: {friendly}, domain={d.metadata.get('domain')})")
     return "\n\n".join(lines)
 
 
