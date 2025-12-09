@@ -208,9 +208,17 @@ def _rule_based_safety(plan_text: str, profile: str) -> List[str]:
     return warnings
 
 
-def run_plan(profile: str, task: str, weeks_to_race: int = 12, temperature: float = 0.2) -> Tuple[str, str]:
+def run_plan(
+    profile: str,
+    task: str,
+    weeks_to_race: int = 12,
+    temperature: float = 0.2,
+    long_run_day: str = "Sunday",
+    days_per_week: int = 6,
+) -> Tuple[str, str]:
     """
     Generate a phased plan to race day (weekly summary) plus the next 7-day detailed plan.
+    Enforces one long run on the chosen day, one tempo, one interval, and easy runs separating them.
     """
     weeks = max(4, min(24, weeks_to_race or 12))
     app = build_graph(temperature=temperature)
@@ -220,9 +228,10 @@ def run_plan(profile: str, task: str, weeks_to_race: int = 12, temperature: floa
                 f"Runner profile: {profile}\n"
                 f"Task: {task}\n"
                 f"Plan horizon: {weeks} weeks until race.\n"
-                "Use retrieve_tool with domain=plans for training guidance; domain=safety for heat/injury/load caps; domain=fueling for fueling; domain=biomech for footwear/plates.\n"
+                "Use retrieve_plans for training guidance; retrieve_safety for heat/injury/load caps; retrieve_fueling for fueling; retrieve_biomech for footwear/plates.\n"
+                f"Constraints: schedule the long run on {long_run_day}; include exactly one long run, one tempo, and one interval session per week; total training days per week = {days_per_week}; place easy days between any hard days.\n"
                 "1) Give a week-by-week summary to race day (Base/Build/Taper) with target weekly mileage and key session focus.\n"
-                "2) Then give a detailed next-7-day table with Day, Session, Distance, Pace/Effort, and notes. Cite sources like [1].\n"
+                "2) Then give a detailed next-7-day table with Day, Session, Distance, Pace/Effort, and notes that satisfies the constraints above. Cite sources like [1].\n"
                 "Keep it grounded in the retrieved corpus. If corpus is weak, say so."
             )
         ),
@@ -250,7 +259,7 @@ def run_adjust(profile: str, today_plan: str, weather: str, fatigue: int, temper
                 f"Today's planned session: {today_plan}\n"
                 f"Weather: {weather}\n"
                 f"Fatigue (1-5): {fatigue}\n"
-                "Use retrieve_tool with domain=safety for heat/fatigue/injury guidance; domain=plans for session structure.\n"
+                "Use retrieve_safety for heat/fatigue/injury guidance; retrieve_plans for session structure; call heat_adjust if >75F or high humidity; call safety_limits for caps.\n"
                 "Adjust the session safely (distance, pace, or modality). Keep it concise and cite sources."
             )
         ),

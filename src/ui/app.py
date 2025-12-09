@@ -23,6 +23,8 @@ with st.sidebar:
     long_run = st.number_input("Recent long run (mi)", min_value=0.0, max_value=35.0, value=10.0, step=1.0)
     injury = st.toggle("Injury/illness flag", value=False)
     fatigue = st.slider("Fatigue (1=fresh, 5=exhausted)", 1, 5, 2)
+    long_run_day = st.selectbox("Preferred long run day", ["Saturday", "Sunday"], index=1)
+    days_per_week = st.slider("Training days per week", 3, 7, 6)
 
     st.subheader("Model")
     temp = st.slider("Temperature", 0.0, 1.0, 0.2, 0.05)
@@ -81,6 +83,8 @@ if run_clicked and prompt.strip():
             task=prompt.strip(),
             weeks_to_race=weeks_to_race,
             temperature=temp,
+            long_run_day=long_run_day,
+            days_per_week=days_per_week,
         )
     st.subheader("Plan")
     maybe_table(plan_text)
