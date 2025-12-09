@@ -30,14 +30,56 @@ def maybe_table(text: str):
         st.markdown(text)
 
 
-def build_profile_context(data: dict | None) -> str:
-    if not data:
-        return "No profile provided"
+def build_profile_context(data: dict | None) -> dict | str:
+    return data or "No profile provided"
+
+
+def parse_goal_time(time_str: str) -> float | None:
     try:
-        # Convert profile dict to a stable JSON string for downstream functions expecting str
-        return json.dumps(data, indent=2, default=str)
+        parts = time_str.strip().split(":")
+        parts = [float(p) for p in parts]
+        if len(parts) == 3:
+            h, m, s = parts
+        elif len(parts) == 2:
+            h = 0
+            m, s = parts
+        elif len(parts) == 1:
+            h = 0
+            m = float(parts[0])
+            s = 0
+        else:
+            return None
+        return h * 3600 + m * 60 + s
     except Exception:
-        return str(data)
+        return None
+
+
+def format_pace(sec_per_unit: float) -> str:
+    mins = int(sec_per_unit // 60)
+    secs = int(round(sec_per_unit % 60))
+    return f"{mins}:{secs:02d}"
+
+
+def pace_overview(race: str, goal_time_str: str):
+    dist_miles = {
+        "5K": 3.107,
+        "10K": 6.214,
+        "Half Marathon": 13.109,
+        "Marathon": 26.218,
+    }.get(race, None)
+    total_sec = parse_goal_time(goal_time_str)
+    if dist_miles is None or total_sec is None or total_sec <= 0:
+        return "Unable to compute paces from goal time.", {}
+    base_pace = total_sec / dist_miles
+    paces = {
+        "Goal pace": format_pace(base_pace),
+        "Easy": format_pace(base_pace + 90),
+        "Long run": format_pace(base_pace + 60),
+        "Tempo/Threshold": format_pace(base_pace + 20),
+        "Interval": format_pace(max(base_pace - 20, base_pace * 0.85)),
+    }
+    summary = " | ".join(f"{k}: {v}/mi" for k, v in paces.items())
+    return summary, paces
 
 
 tabs = st.tabs(["Setup Profile & Plan", "Ask the Coach", "Adjust a Session"])
@@ -60,6 +102,8 @@ with tabs[0]:
     )
 
     weeks_to_race = max(4, int((race_date - datetime.date.today()).days // 7))
+    pace_summary, pace_dict = pace_overview(race_name, goal_time)
+    st.info(f"Pace overview: {pace_summary}")
 
     if st.button("Generate full plan", type="primary"):
         profile_data = {
