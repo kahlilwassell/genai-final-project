@@ -53,6 +53,8 @@ Agentic running coach that combines RAG, LangGraph, safety guardrails, and goal-
   ```
 - Eval retrieval set: `source .venv/bin/activate && python scripts/quick_eval.py`
 - Streamlit UI: `source .venv/bin/activate && PYTHONPATH=. streamlit run src/ui/app.py`
+- Demos: see the `media/` folder for demo assets (screenshots/video).
+- Built with the assistance of OpenAI Codex.
 
 ## Limitations / Future work
 - Retrieval scope limited to current corpus; add more biomechanics/fueling/safety docs and fine-tune chunking/filters.
